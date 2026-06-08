@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { SweepRow } from '../types'
+import { Avatar } from './Avatar'
 import { Flag } from './Flag'
 
 interface PeopleGridProps {
@@ -43,10 +44,13 @@ export function PeopleGrid({ sweep }: PeopleGridProps) {
         <ul className="people-grid">
           {filtered.map((row) => (
             <li key={row.person} className="person-card">
-              <Flag team={row.team} className="person-card__flag" />
+              <Avatar name={row.person} className="person-card__avatar" />
               <div className="person-card__body">
                 <span className="person-card__name">{row.person}</span>
-                <span className="person-card__team">{row.team.name}</span>
+                <span className="person-card__team">
+                  <Flag team={row.team} className="person-card__flag" />
+                  <span className="person-card__teamname">{row.team.name}</span>
+                </span>
               </div>
               <span className="badge" title={`Group ${row.team.group}`}>
                 {row.team.group}
