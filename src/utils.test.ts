@@ -3,8 +3,10 @@ import {
   flagEmojiToIso,
   flagUrl,
   formatMatchDate,
+  formatMatchTime,
   groupBy,
   indexTeamsByName,
+  personSlug,
   roundOrder,
 } from './utils'
 import type { Team } from './types'
@@ -30,6 +32,18 @@ describe('flagEmojiToIso', () => {
   it('returns null when there are not two regional indicators', () => {
     expect(flagEmojiToIso('')).toBeNull()
     expect(flagEmojiToIso('abc')).toBeNull()
+  })
+})
+
+describe('personSlug', () => {
+  it('lowercases and hyphenates names', () => {
+    expect(personSlug('Ange T')).toBe('ange-t')
+    expect(personSlug('Fleur & Galina')).toBe('fleur-galina')
+    expect(personSlug('Sal & TX')).toBe('sal-tx')
+  })
+
+  it('strips diacritics', () => {
+    expect(personSlug('Curaçao')).toBe('curacao')
   })
 })
 
@@ -80,5 +94,25 @@ describe('formatMatchDate', () => {
 
   it('returns the input when it is not a valid date', () => {
     expect(formatMatchDate('not-a-date')).toBe('not-a-date')
+  })
+
+  it('rolls to the Melbourne day for a late overseas kick-off', () => {
+    // 20:00 UTC-6 on 11 Jun = 02:00 UTC 12 Jun = 12:00 AEST 12 Jun.
+    expect(formatMatchDate('2026-06-11', '20:00 UTC-6')).toBe('Fri 12 Jun')
+  })
+})
+
+describe('formatMatchTime', () => {
+  it('converts a venue time + offset to Melbourne (AEST = UTC+10)', () => {
+    // 13:00 UTC-6 = 19:00 UTC = 05:00 AEST next day.
+    expect(formatMatchTime('2026-06-11', '13:00 UTC-6')).toBe('05:00')
+    // 20:00 UTC-6 = 02:00 UTC = 12:00 AEST next day.
+    expect(formatMatchTime('2026-06-11', '20:00 UTC-6')).toBe('12:00')
+    // 12:00 UTC-4 = 16:00 UTC = 02:00 AEST next day.
+    expect(formatMatchTime('2026-06-18', '12:00 UTC-4')).toBe('02:00')
+  })
+
+  it('returns the raw time when it cannot be parsed', () => {
+    expect(formatMatchTime('2026-06-11', 'TBD')).toBe('TBD')
   })
 })

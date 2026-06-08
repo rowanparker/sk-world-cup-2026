@@ -1,10 +1,13 @@
+import { useState } from 'react'
 import { Header } from './components/Header'
 import { MatchSchedule } from './components/MatchSchedule'
+import { NextMatch } from './components/NextMatch'
 import { PeopleGrid } from './components/PeopleGrid'
 import { useWorldCupData } from './hooks/useWorldCupData'
 
 export default function App() {
   const { status, data, error } = useWorldCupData()
+  const [selectedPerson, setSelectedPerson] = useState<string | null>(null)
 
   return (
     <div className="app">
@@ -30,11 +33,21 @@ export default function App() {
 
         {status === 'ready' && (
           <>
-            <PeopleGrid sweep={data.sweep} />
+            <NextMatch
+              matches={data.matches}
+              teams={data.teams}
+              sweep={data.sweep}
+            />
+            <PeopleGrid
+              sweep={data.sweep}
+              selectedPerson={selectedPerson}
+              onSelect={setSelectedPerson}
+            />
             <MatchSchedule
               matches={data.matches}
               teams={data.teams}
               sweep={data.sweep}
+              selectedPerson={selectedPerson}
             />
           </>
         )}

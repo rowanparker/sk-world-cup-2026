@@ -23,6 +23,24 @@ export function flagUrl(team: Pick<Team, 'flag_icon'>): string | null {
   return iso ? `https://flagcdn.com/${iso}.svg` : null
 }
 
+/**
+ * Filename-safe slug for a person, used to locate their avatar in
+ * `public/people/<slug>.png` (e.g. "Fleur & Galina" -> "fleur-galina").
+ */
+export function personSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+/** Public URL for a person's avatar image (a per-person copy of the placeholder). */
+export function avatarUrl(name: string): string {
+  return `${import.meta.env.BASE_URL}people/${personSlug(name)}.png`
+}
+
 /** Index teams by every name they might be referenced under. */
 export function indexTeamsByName(teams: Team[]): Map<string, Team> {
   const map = new Map<string, Team>()
@@ -63,14 +81,55 @@ export function groupBy<T, K>(items: T[], keyFn: (item: T) => K): Map<K, T[]> {
   return map
 }
 
-/** Format an ISO date (YYYY-MM-DD) as e.g. "Thu 11 Jun". */
-export function formatMatchDate(iso: string): string {
-  const date = new Date(`${iso}T00:00:00Z`)
+/** The sweep is run from Melbourne, so all kick-off times are shown in this zone. */
+export const MELBOURNE_TZ = 'Australia/Melbourne'
+
+/**
+ * Resolve a match's kick-off to an absolute instant.
+ *
+ * The source data stores `time` as a wall-clock plus a UTC offset, e.g.
+ * "13:00 UTC-6" (and occasionally with offset minutes, "12:30 UTC-3:30").
+ * Returns null when the time can't be parsed.
+ */
+export function matchInstant(iso: string, time: string): Date | null {
+  const m = time.match(/^(\d{1,2}):(\d{2})\s*UTC([+-])(\d{1,2})(?::?(\d{2}))?$/)
+  if (!m) return null
+  const [, hh, mm, sign, offH, offM = '0'] = m
+  const offsetMinutes =
+    (sign === '-' ? -1 : 1) * (Number(offH) * 60 + Number(offM))
+  const wallClockUtc = Date.parse(
+    `${iso}T${hh.padStart(2, '0')}:${mm}:00Z`,
+  )
+  if (Number.isNaN(wallClockUtc)) return null
+  // UTC instant = the wall-clock reading minus the venue's offset from UTC.
+  return new Date(wallClockUtc - offsetMinutes * 60_000)
+}
+
+/**
+ * Format an ISO date (YYYY-MM-DD) as e.g. "Thu 11 Jun". When `time` is given,
+ * the date is resolved to the equivalent Melbourne day (a late kick-off abroad
+ * can fall on the next day here).
+ */
+export function formatMatchDate(iso: string, time?: string): string {
+  const instant = time ? matchInstant(iso, time) : null
+  const date = instant ?? new Date(`${iso}T00:00:00Z`)
   if (Number.isNaN(date.getTime())) return iso
   return date.toLocaleDateString('en-GB', {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
-    timeZone: 'UTC',
+    timeZone: instant ? MELBOURNE_TZ : 'UTC',
+  })
+}
+
+/** Format a match kick-off as a 24-hour Melbourne time, e.g. "05:00". */
+export function formatMatchTime(iso: string, time: string): string {
+  const instant = matchInstant(iso, time)
+  if (!instant) return time
+  return instant.toLocaleTimeString('en-AU', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: MELBOURNE_TZ,
   })
 }

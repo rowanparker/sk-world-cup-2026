@@ -1,12 +1,22 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import type { Match, SweepRow, Team } from '../types'
-import { formatMatchDate, groupBy, indexTeamsByName, roundOrder } from '../utils'
+import { useCollapsible } from '../hooks/useCollapsible'
+import {
+  formatMatchDate,
+  formatMatchTime,
+  groupBy,
+  indexTeamsByName,
+  roundOrder,
+} from '../utils'
+import { Chevron } from './Chevron'
 import { Flag } from './Flag'
 
 interface MatchScheduleProps {
   matches: Match[]
   teams: Team[]
   sweep: SweepRow[]
+  /** When set, only show matches involving this person's team. */
+  selectedPerson: string | null
 }
 
 interface ResolvedSide {
@@ -18,8 +28,13 @@ interface ResolvedSide {
   label: string
 }
 
-export function MatchSchedule({ matches, teams, sweep }: MatchScheduleProps) {
-  const [groupStageOnly, setGroupStageOnly] = useState(false)
+export function MatchSchedule({
+  matches,
+  teams,
+  sweep,
+  selectedPerson,
+}: MatchScheduleProps) {
+  const [open, setOpen] = useCollapsible('schedule:open', true)
 
   const teamsByName = useMemo(() => indexTeamsByName(teams), [teams])
   const ownerByTeam = useMemo(() => {
@@ -38,8 +53,12 @@ export function MatchSchedule({ matches, teams, sweep }: MatchScheduleProps) {
   }
 
   const rounds = useMemo(() => {
-    const visible = groupStageOnly
-      ? matches.filter((m) => m.group)
+    const visible = selectedPerson
+      ? matches.filter(
+          (m) =>
+            resolveSide(m.team1).person === selectedPerson ||
+            resolveSide(m.team2).person === selectedPerson,
+        )
       : matches
     const sorted = [...visible].sort((a, b) => {
       const byRound = roundOrder(a.round) - roundOrder(b.round)
@@ -48,51 +67,74 @@ export function MatchSchedule({ matches, teams, sweep }: MatchScheduleProps) {
       return (a.num ?? 0) - (b.num ?? 0)
     })
     return groupBy(sorted, (m) => m.round)
-  }, [matches, groupStageOnly])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matches, selectedPerson, teamsByName, ownerByTeam])
 
   return (
     <section className="panel" aria-labelledby="schedule-heading">
       <div className="panel__head">
-        <h2 id="schedule-heading" className="panel__title">
-          Match Schedule
-        </h2>
-        <label className="toggle">
-          <input
-            type="checkbox"
-            checked={groupStageOnly}
-            onChange={(e) => setGroupStageOnly(e.target.checked)}
-          />
-          Group stage only
-        </label>
+        <div className="panel__head-left">
+          <button
+            type="button"
+            className="panel__toggle"
+            aria-expanded={open}
+            aria-controls="schedule-collapse"
+            aria-label={open ? 'Collapse the schedule' : 'Expand the schedule'}
+            onClick={() => setOpen((o) => !o)}
+          >
+            <Chevron open={open} />
+          </button>
+          <h2 id="schedule-heading" className="panel__title">
+            Match Schedule
+          </h2>
+        </div>
+        {selectedPerson && (
+          <span className="schedule__filter">
+            Showing {selectedPerson}’s matches
+          </span>
+        )}
       </div>
 
-      <div className="schedule">
-        {[...rounds.entries()].map(([round, roundMatches]) => (
-          <div key={round} className="round">
-            <h3 className="round__title">{round}</h3>
-            <ul className="match-list">
-              {roundMatches.map((match, i) => (
-                <li key={match.num ?? `${round}-${i}`} className="match">
-                  <div className="match__meta">
-                    <span className="match__date">
-                      {formatMatchDate(match.date)}
-                    </span>
-                    <span className="match__time">{match.time}</span>
-                    {match.group && (
-                      <span className="match__group">{match.group}</span>
-                    )}
-                  </div>
-                  <div className="match__teams">
-                    <Side side={resolveSide(match.team1)} align="right" />
-                    <span className="match__vs">v</span>
-                    <Side side={resolveSide(match.team2)} align="left" />
-                  </div>
-                  <div className="match__ground">{match.ground}</div>
-                </li>
-              ))}
-            </ul>
+      <div
+        id="schedule-collapse"
+        className={`panel__collapse${open ? ' panel__collapse--open' : ''}`}
+      >
+        <div className="panel__collapse-inner" {...(open ? {} : { inert: '' })}>
+          <div className="schedule">
+            {rounds.size === 0 && (
+              <p className="empty">No matches for {selectedPerson}.</p>
+            )}
+            {[...rounds.entries()].map(([round, roundMatches]) => (
+              <div key={round} className="round">
+                <h3 className="round__title">{round}</h3>
+                <ul className="match-list">
+                  {roundMatches.map((match, i) => (
+                    <li key={match.num ?? `${round}-${i}`} className="match">
+                      <div className="match__meta">
+                        <span className="match__date">
+                          {formatMatchDate(match.date, match.time)}
+                        </span>
+                        <span className="match__time">
+                          {formatMatchTime(match.date, match.time)}{' '}
+                          <span className="match__tz">(MEL)</span>
+                        </span>
+                        {match.group && (
+                          <span className="match__group">{match.group}</span>
+                        )}
+                      </div>
+                      <div className="match__teams">
+                        <Side side={resolveSide(match.team1)} align="right" />
+                        <span className="match__vs">v</span>
+                        <Side side={resolveSide(match.team2)} align="left" />
+                      </div>
+                      <div className="match__ground">{match.ground}</div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
       </div>
     </section>
   )
