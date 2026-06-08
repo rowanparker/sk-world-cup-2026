@@ -1,0 +1,20 @@
+# dependencies
+node_modules
+
+# build output
+dist
+dist-ssr
+*.tsbuildinfo
+
+# source data — do not commit
+import.md
+
+# logs
+*.log
+npm-debug.log*
+
+# editor / os
+.DS_Store
+*.local
+.vscode/*
+!.vscode/extensions.json
