@@ -6,10 +6,12 @@ import {
   formatMatchTime,
   groupBy,
   indexTeamsByName,
+  matchResult,
+  normaliseTeamName,
   personSlug,
   roundOrder,
 } from './utils'
-import type { Team } from './types'
+import type { Match, Team } from './types'
 
 const team = (over: Partial<Team>): Team => ({
   name: 'Mexico',
@@ -32,6 +34,76 @@ describe('flagEmojiToIso', () => {
   it('returns null when there are not two regional indicators', () => {
     expect(flagEmojiToIso('')).toBeNull()
     expect(flagEmojiToIso('abc')).toBeNull()
+  })
+})
+
+describe('matchResult', () => {
+  const match = (score?: Match['score']): Match => ({
+    round: 'Matchday 1',
+    date: '2026-06-11',
+    time: '13:00 UTC-6',
+    team1: 'Mexico',
+    team2: 'Japan',
+    ground: 'Estadio Azteca',
+    score,
+  })
+
+  it('returns null for matches that have not been played', () => {
+    expect(matchResult(match())).toBeNull()
+    expect(matchResult(match({ ft: undefined }))).toBeNull()
+  })
+
+  it('picks the winner from the full-time score', () => {
+    expect(matchResult(match({ ft: [2, 1] }))).toEqual({
+      ft: [2, 1],
+      winner: 1,
+      detail: null,
+    })
+    expect(matchResult(match({ ft: [0, 3] }))?.winner).toBe(2)
+  })
+
+  it('reports a level full-time score as a draw', () => {
+    expect(matchResult(match({ ft: [1, 1] }))).toEqual({
+      ft: [1, 1],
+      winner: null,
+      detail: null,
+    })
+  })
+
+  it('uses extra time to break a tie', () => {
+    expect(matchResult(match({ ft: [1, 1], et: [2, 1] }))).toEqual({
+      ft: [1, 1],
+      winner: 1,
+      detail: 'a.e.t.',
+    })
+  })
+
+  it('uses penalties when still level after extra time', () => {
+    expect(
+      matchResult(match({ ft: [1, 1], et: [1, 1], p: [3, 4] })),
+    ).toEqual({
+      ft: [1, 1],
+      winner: 2,
+      detail: '3–4 pens',
+    })
+  })
+})
+
+describe('normaliseTeamName', () => {
+  it('collapses punctuation so spelling variants compare equal', () => {
+    expect(normaliseTeamName('Bosnia & Herzegovina')).toBe(
+      normaliseTeamName('Bosnia-Herzegovina'),
+    )
+  })
+
+  it('strips diacritics', () => {
+    expect(normaliseTeamName("Côte d'Ivoire")).toBe('ivory coast')
+  })
+
+  it('reconciles cross-source aliases to one canonical name', () => {
+    expect(normaliseTeamName('Korea Republic')).toBe('south korea')
+    expect(normaliseTeamName('IR Iran')).toBe('iran')
+    expect(normaliseTeamName('Czechia')).toBe('czech republic')
   })
 })
 

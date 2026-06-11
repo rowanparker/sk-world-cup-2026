@@ -8,6 +8,7 @@ import type {
   Team,
   WorldCupData,
 } from './types'
+import { fetchBackupResults, mergeBackupScores } from './backup'
 import { indexTeamsByName } from './utils'
 
 /** Source data lives in the openfootball/worldcup.json repo (2026 folder). */
@@ -53,19 +54,22 @@ export function buildSweep(entries: SweepEntry[], teams: Team[]): SweepRow[] {
 }
 
 export async function loadWorldCupData(signal?: AbortSignal): Promise<WorldCupData> {
-  const [teams, stadiumsFile, matchesFile, qualiFile, sweepEntries] =
+  const [teams, stadiumsFile, matchesFile, qualiFile, sweepEntries, backup] =
     await Promise.all([
       fetchJson<Team[]>(SOURCES.teams, signal),
       fetchJson<StadiumsFile>(SOURCES.stadiums, signal),
       fetchJson<MatchesFile>(SOURCES.matches, signal),
       fetchJson<MatchesFile>(SOURCES.qualiPlayoffs, signal),
       fetchSweepEntries(signal),
+      // Backup live-results feed; resolves to [] if it's unavailable.
+      fetchBackupResults(signal),
     ])
 
   return {
     teams,
     stadiums: stadiumsFile.stadiums as Stadium[],
-    matches: matchesFile.matches as Match[],
+    // Fill any scores openfootball hasn't published yet from the backup source.
+    matches: mergeBackupScores(matchesFile.matches as Match[], backup),
     qualiPlayoffs: qualiFile.matches as Match[],
     sweep: buildSweep(sweepEntries, teams),
   }

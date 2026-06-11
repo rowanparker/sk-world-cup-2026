@@ -1,4 +1,4 @@
-import type { Team } from './types'
+import type { Match, Team } from './types'
 
 /**
  * Convert a flag emoji (two Unicode regional-indicator symbols) into an
@@ -41,6 +41,37 @@ export function avatarUrl(name: string): string {
   return `${import.meta.env.BASE_URL}people/${personSlug(name)}.png`
 }
 
+/**
+ * Aliases mapping a normalised team name to the canonical normalised form used
+ * elsewhere, so the same nation matches across data sources that spell it
+ * differently (e.g. "Korea Republic" vs "South Korea").
+ */
+const TEAM_NAME_ALIASES: Record<string, string> = {
+  'korea republic': 'south korea',
+  'ir iran': 'iran',
+  'cote d ivoire': 'ivory coast',
+  'czechia': 'czech republic',
+  'congo dr': 'dr congo',
+  'usa': 'united states',
+  'united states of america': 'united states',
+}
+
+/**
+ * Reduce a team name to a comparison key: lower-cased, diacritics stripped, and
+ * every run of non-alphanumeric characters collapsed to a single space. This
+ * makes "Bosnia & Herzegovina" and "Bosnia-Herzegovina" compare equal, then a
+ * small alias table reconciles names that differ by more than punctuation.
+ */
+export function normaliseTeamName(name: string): string {
+  const key = name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+  return TEAM_NAME_ALIASES[key] ?? key
+}
+
 /** Index teams by every name they might be referenced under. */
 export function indexTeamsByName(teams: Team[]): Map<string, Team> {
   const map = new Map<string, Team>()
@@ -79,6 +110,46 @@ export function groupBy<T, K>(items: T[], keyFn: (item: T) => K): Map<K, T[]> {
     else map.set(key, [item])
   }
   return map
+}
+
+export interface MatchResult {
+  /** Full-time goals as shown to the user, e.g. [2, 1]. */
+  ft: [number, number]
+  /** 1 if team1 won, 2 if team2 won, null for a draw. */
+  winner: 1 | 2 | null
+  /** Extra context like "a.e.t." or "4–2 pens", when the match went past 90'. */
+  detail: string | null
+}
+
+/**
+ * Resolve a completed match's score into a displayable result. A match is
+ * considered finished only when it carries a full-time (`ft`) score; extra time
+ * (`et`) and penalties (`p`) decide the winner when the 90 minutes were level.
+ * Returns null for matches that haven't been played.
+ */
+export function matchResult(match: Match): MatchResult | null {
+  const { score } = match
+  if (!score?.ft) return null
+  const ft = score.ft
+
+  if (score.p) {
+    const [p1, p2] = score.p
+    return {
+      ft,
+      winner: p1 > p2 ? 1 : p1 < p2 ? 2 : null,
+      detail: `${p1}–${p2} pens`,
+    }
+  }
+  if (score.et) {
+    const [e1, e2] = score.et
+    return {
+      ft,
+      winner: e1 > e2 ? 1 : e1 < e2 ? 2 : null,
+      detail: 'a.e.t.',
+    }
+  }
+  const [f1, f2] = ft
+  return { ft, winner: f1 > f2 ? 1 : f1 < f2 ? 2 : null, detail: null }
 }
 
 /** The sweep is run from Melbourne, so all kick-off times are shown in this zone. */

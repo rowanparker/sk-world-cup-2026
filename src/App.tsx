@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { CompletedMatches } from './components/CompletedMatches'
 import { Header } from './components/Header'
 import { MatchSchedule } from './components/MatchSchedule'
 import { NextMatch } from './components/NextMatch'
@@ -34,6 +35,11 @@ export default function App() {
         {status === 'ready' && (
           <>
             <NextMatch
+              matches={data.matches}
+              teams={data.teams}
+              sweep={data.sweep}
+            />
+            <CompletedMatches
               matches={data.matches}
               teams={data.teams}
               sweep={data.sweep}
