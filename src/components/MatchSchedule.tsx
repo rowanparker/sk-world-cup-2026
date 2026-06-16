@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { Match, SweepRow, Team } from '../types'
 import { useCollapsible } from '../hooks/useCollapsible'
 import {
@@ -6,6 +6,7 @@ import {
   formatMatchTime,
   groupBy,
   indexTeamsByName,
+  matchResult,
   roundOrder,
 } from '../utils'
 import { Chevron } from './Chevron'
@@ -35,6 +36,7 @@ export function MatchSchedule({
   selectedPerson,
 }: MatchScheduleProps) {
   const [open, setOpen] = useCollapsible('schedule:open', true)
+  const [showPlayed, setShowPlayed] = useState(false)
 
   const teamsByName = useMemo(() => indexTeamsByName(teams), [teams])
   const ownerByTeam = useMemo(() => {
@@ -53,13 +55,14 @@ export function MatchSchedule({
   }
 
   const rounds = useMemo(() => {
-    const visible = selectedPerson
+    let visible = selectedPerson
       ? matches.filter(
           (m) =>
             resolveSide(m.team1).person === selectedPerson ||
             resolveSide(m.team2).person === selectedPerson,
         )
       : matches
+    if (!showPlayed) visible = visible.filter((m) => !matchResult(m))
     const sorted = [...visible].sort((a, b) => {
       const byRound = roundOrder(a.round) - roundOrder(b.round)
       if (byRound !== 0) return byRound
@@ -68,7 +71,7 @@ export function MatchSchedule({
     })
     return groupBy(sorted, (m) => m.round)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matches, selectedPerson, teamsByName, ownerByTeam])
+  }, [matches, selectedPerson, showPlayed, teamsByName, ownerByTeam])
 
   return (
     <section className="panel" aria-labelledby="schedule-heading">
@@ -88,11 +91,21 @@ export function MatchSchedule({
             Match Schedule
           </h2>
         </div>
-        {selectedPerson && (
-          <span className="schedule__filter">
-            Showing {selectedPerson}’s matches
-          </span>
-        )}
+        <div className="schedule__controls">
+          {selectedPerson && (
+            <span className="schedule__filter">
+              Showing {selectedPerson}’s matches
+            </span>
+          )}
+          <label className="schedule__toggle">
+            <input
+              type="checkbox"
+              checked={showPlayed}
+              onChange={(e) => setShowPlayed(e.target.checked)}
+            />
+            Show already played
+          </label>
+        </div>
       </div>
 
       <div

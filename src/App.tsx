@@ -3,13 +3,16 @@ import { CompletedMatches } from './components/CompletedMatches'
 import { Header } from './components/Header'
 import { MatchSchedule } from './components/MatchSchedule'
 import { NextMatch } from './components/NextMatch'
-import { PeopleGrid } from './components/PeopleGrid'
+// "The Sweep" section is hidden for now — keep the import for when it returns.
+// import { PeopleGrid } from './components/PeopleGrid'
 import { Prizes } from './components/Prizes'
 import { useWorldCupData } from './hooks/useWorldCupData'
 
 export default function App() {
   const { status, data, error } = useWorldCupData()
-  const [selectedPerson, setSelectedPerson] = useState<string | null>(null)
+  // Per-person filtering was driven by "The Sweep"; with it hidden, nothing
+  // selects a person, so the schedule shows everyone.
+  const [selectedPerson] = useState<string | null>(null)
 
   return (
     <div className="app">
@@ -46,11 +49,13 @@ export default function App() {
               teams={data.teams}
               sweep={data.sweep}
             />
+            {/* "The Sweep" section hidden for now — kept for future use.
             <PeopleGrid
               sweep={data.sweep}
               selectedPerson={selectedPerson}
               onSelect={setSelectedPerson}
             />
+            */}
             <MatchSchedule
               matches={data.matches}
               teams={data.teams}

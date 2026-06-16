@@ -192,6 +192,31 @@ body {
   color: var(--brand-blue-dark);
 }
 
+.schedule__controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.schedule__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.schedule__toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--brand-blue);
+  cursor: pointer;
+}
+
 /* ---------- People grid ---------- */
 .people-grid {
   list-style: none;
@@ -522,12 +547,6 @@ body {
   gap: 7px;
   min-width: 0;
   color: var(--text-muted);
-}
-
-.results-team:first-child {
-  justify-content: flex-end;
-  flex-direction: row-reverse;
-  text-align: right;
 }
 
 .results-team--won {
@@ -957,11 +976,6 @@ body {
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 12px;
-}
-
-.prize--1st {
-  border-color: var(--brand-blue);
-  box-shadow: 0 0 0 1px var(--brand-blue) inset;
 }
 
 .prize__image {
