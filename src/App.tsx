@@ -4,6 +4,7 @@ import { Header } from './components/Header'
 import { MatchSchedule } from './components/MatchSchedule'
 import { NextMatch } from './components/NextMatch'
 import { PeopleGrid } from './components/PeopleGrid'
+import { Prizes } from './components/Prizes'
 import { useWorldCupData } from './hooks/useWorldCupData'
 
 export default function App() {
@@ -39,6 +40,7 @@ export default function App() {
               teams={data.teams}
               sweep={data.sweep}
             />
+            <Prizes />
             <CompletedMatches
               matches={data.matches}
               teams={data.teams}
