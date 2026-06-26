@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { CompletedMatches } from './components/CompletedMatches'
+import { Finals } from './components/Finals'
 import { Header } from './components/Header'
 import { MatchSchedule } from './components/MatchSchedule'
 import { NextMatch } from './components/NextMatch'
@@ -43,7 +44,12 @@ export default function App() {
               teams={data.teams}
               sweep={data.sweep}
             />
-            <Prizes />
+            <Prizes matches={data.matches} sweep={data.sweep} />
+            <Finals
+              matches={data.matches}
+              teams={data.teams}
+              sweep={data.sweep}
+            />
             <CompletedMatches
               matches={data.matches}
               teams={data.teams}
@@ -67,14 +73,24 @@ export default function App() {
       </main>
 
       <footer className="footer">
-        Sidekicker World Cup 2026 Sweeps · data from{' '}
-        <a
-          href="https://github.com/openfootball/worldcup.json"
-          target="_blank"
-          rel="noreferrer"
-        >
-          openfootball
-        </a>
+        <p className="footer__note">
+          <strong>How “Last” is worked out:</strong> from the results so far, each
+          sweeper’s team is ranked by how far it has gone — knockout rounds
+          survived first, then group-stage points, goal difference and goals
+          scored. The team sitting bottom of that list is shown as the estimated
+          last place. It updates as more matches are played, so it can move
+          around until the tournament is done.
+        </p>
+        <p>
+          Sidekicker World Cup 2026 Sweeps · data from{' '}
+          <a
+            href="https://github.com/openfootball/worldcup.json"
+            target="_blank"
+            rel="noreferrer"
+          >
+            openfootball
+          </a>
+        </p>
       </footer>
     </div>
   )

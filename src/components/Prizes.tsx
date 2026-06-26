@@ -1,3 +1,8 @@
+import { useMemo } from 'react'
+import type { Match, SweepRow } from '../types'
+import { estimateLastPlace } from '../utils'
+import { Flag } from './Flag'
+
 interface Prize {
   place: string
   reward: string
@@ -26,7 +31,17 @@ const MEDALS: Record<string, string> = {
   Last: '🥄',
 }
 
-export function Prizes() {
+interface PrizesProps {
+  matches: Match[]
+  sweep: SweepRow[]
+}
+
+export function Prizes({ matches, sweep }: PrizesProps) {
+  const lastPlace = useMemo(
+    () => estimateLastPlace(matches, sweep),
+    [matches, sweep],
+  )
+
   return (
     <section className="panel prizes" aria-labelledby="prizes-heading">
       <div className="panel__head">
@@ -57,6 +72,14 @@ export function Prizes() {
                 {prize.place}
               </span>
               <span className="prize__reward">{prize.reward}</span>
+              {prize.place === 'Last' && lastPlace && (
+                <span className="prize__estimate" title="Estimated from results so far">
+                  <Flag team={lastPlace.team} className="prize__estimate-flag" />
+                  <span className="prize__estimate-text">
+                    Currently {lastPlace.person} ({lastPlace.team.name})
+                  </span>
+                </span>
+              )}
             </div>
           </li>
         ))}

@@ -1,17 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildBracket,
+  computeSweepStandings,
+  estimateLastPlace,
+  feederMatchNum,
   flagEmojiToIso,
   flagUrl,
   formatMatchDate,
   formatMatchTime,
   groupBy,
   indexTeamsByName,
+  isKnockoutRound,
   matchResult,
   normaliseTeamName,
   personSlug,
   roundOrder,
 } from './utils'
-import type { Match, Team } from './types'
+import type { Match, SweepRow, Team } from './types'
 
 const team = (over: Partial<Team>): Team => ({
   name: 'Mexico',
@@ -148,6 +153,132 @@ describe('roundOrder', () => {
     expect(roundOrder('Matchday 17')).toBeLessThan(roundOrder('Round of 32'))
     expect(roundOrder('Round of 32')).toBeLessThan(roundOrder('Round of 16'))
     expect(roundOrder('Semi-final')).toBeLessThan(roundOrder('Final'))
+  })
+})
+
+describe('isKnockoutRound', () => {
+  it('flags the knockout rounds but not group matchdays', () => {
+    expect(isKnockoutRound('Matchday 1')).toBe(false)
+    expect(isKnockoutRound('Matchday 17')).toBe(false)
+    expect(isKnockoutRound('Round of 32')).toBe(true)
+    expect(isKnockoutRound('Final')).toBe(true)
+    expect(isKnockoutRound('Match for third place')).toBe(true)
+  })
+})
+
+describe('feederMatchNum', () => {
+  it('reads the match number from a winner/loser placeholder', () => {
+    expect(feederMatchNum('W74')).toBe(74)
+    expect(feederMatchNum('L101')).toBe(101)
+  })
+
+  it('returns null for real teams or group placeholders', () => {
+    expect(feederMatchNum('Brazil')).toBeNull()
+    expect(feederMatchNum('3A/B/C/D/F')).toBeNull()
+    expect(feederMatchNum('1F')).toBeNull()
+  })
+})
+
+describe('buildBracket', () => {
+  const ko = (num: number, round: string, team1: string, team2: string): Match => ({
+    round,
+    num,
+    date: '2026-07-01',
+    time: '13:00 UTC-6',
+    team1,
+    team2,
+    ground: 'Somewhere',
+  })
+
+  // A compact but faithful bracket: 4 R16 → 2 QF → 1 SF/Final, plus 3rd place.
+  const matches: Match[] = [
+    ko(1, 'Round of 16', 'A', 'B'),
+    ko(2, 'Round of 16', 'C', 'D'),
+    ko(3, 'Round of 16', 'E', 'F'),
+    ko(4, 'Round of 16', 'G', 'H'),
+    ko(5, 'Quarter-final', 'W1', 'W2'),
+    ko(6, 'Quarter-final', 'W3', 'W4'),
+    ko(7, 'Semi-final', 'W5', 'W6'),
+    ko(9, 'Match for third place', 'L7', 'L8'),
+    ko(8, 'Final', 'W7', 'W8'),
+  ]
+
+  it('keeps only knockout rounds, in left-to-right order', () => {
+    const { rounds } = buildBracket([
+      ...matches,
+      { ...ko(0, 'Matchday 1', 'X', 'Y') },
+    ])
+    expect(rounds.map((r) => r.round)).toEqual([
+      'Round of 16',
+      'Quarter-final',
+      'Semi-final',
+      'Final',
+    ])
+  })
+
+  it('orders each round so matches sit between the two they feed', () => {
+    const { rounds } = buildBracket(matches)
+    const r16 = rounds.find((r) => r.round === 'Round of 16')!
+    // Final(8)→W7,W8 ; SF7→W5,W6 ; QF5→W1,W2, QF6→W3,W4 — so R16 reads 1,2,3,4.
+    expect(r16.matches.map((m) => m.num)).toEqual([1, 2, 3, 4])
+  })
+
+  it('pulls the third-place play-off out of the main tree', () => {
+    const { rounds, thirdPlace } = buildBracket(matches)
+    expect(thirdPlace?.num).toBe(9)
+    expect(rounds.some((r) => r.round === 'Match for third place')).toBe(false)
+  })
+})
+
+describe('computeSweepStandings / estimateLastPlace', () => {
+  const t = (name: string): Team => team({ name })
+  const sweep: SweepRow[] = [
+    { person: 'Ann', team: t('Brazil') },
+    { person: 'Bob', team: t('Japan') },
+    { person: 'Cat', team: t('Mexico') },
+  ]
+  const played = (
+    round: string,
+    team1: string,
+    team2: string,
+    ft: [number, number],
+    extra?: Match['score'],
+  ): Match => ({
+    round,
+    date: '2026-06-11',
+    time: '13:00 UTC-6',
+    team1,
+    team2,
+    ground: 'X',
+    score: { ft, ...extra },
+  })
+
+  it('returns null before any match is played', () => {
+    const upcoming = [{ ...played('Matchday 1', 'Brazil', 'Japan', [0, 0]), score: undefined }]
+    expect(estimateLastPlace(upcoming, sweep)).toBeNull()
+  })
+
+  it('ranks the worst group performer as last', () => {
+    const matches = [
+      played('Matchday 1', 'Brazil', 'Japan', [3, 0]), // Ann +3, Bob loses
+      played('Matchday 1', 'Mexico', 'Spain', [1, 1]), // Cat draws
+    ]
+    const last = estimateLastPlace(matches, sweep)
+    expect(last?.person).toBe('Bob')
+  })
+
+  it('counts knockout wins as survived rounds, lifting a team above group sides', () => {
+    const matches = [
+      played('Matchday 1', 'Brazil', 'Spain', [0, 2]), // Ann: group loss
+      played('Matchday 1', 'Japan', 'Spain', [2, 0]), // Bob: group win (3 pts)
+      played('Matchday 1', 'Mexico', 'Spain', [0, 1]), // Cat: group loss
+      played('Round of 16', 'Brazil', 'Italy', [1, 1], { p: [4, 2] }), // Ann: wins on pens
+    ]
+    const standings = computeSweepStandings(matches, sweep)
+    // Ann survived a knockout round, so she ranks ahead of Bob's 3 group points.
+    expect(standings.map((s) => s.person)).toEqual(['Ann', 'Bob', 'Cat'])
+    expect(standings[0].knockoutWins).toBe(1)
+    expect(estimateLastPlace(matches, sweep)?.person).toBe('Cat')
   })
 })
 

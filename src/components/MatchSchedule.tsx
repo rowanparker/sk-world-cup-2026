@@ -6,6 +6,7 @@ import {
   formatMatchTime,
   groupBy,
   indexTeamsByName,
+  isKnockoutRound,
   matchResult,
   roundOrder,
 } from '../utils'
@@ -55,13 +56,15 @@ export function MatchSchedule({
   }
 
   const rounds = useMemo(() => {
-    let visible = selectedPerson
-      ? matches.filter(
-          (m) =>
-            resolveSide(m.team1).person === selectedPerson ||
-            resolveSide(m.team2).person === selectedPerson,
-        )
-      : matches
+    // The knockout rounds live in the "Finals" bracket; keep only group-stage
+    // matchdays here.
+    let visible = matches.filter((m) => !isKnockoutRound(m.round))
+    if (selectedPerson)
+      visible = visible.filter(
+        (m) =>
+          resolveSide(m.team1).person === selectedPerson ||
+          resolveSide(m.team2).person === selectedPerson,
+      )
     if (!showPlayed) visible = visible.filter((m) => !matchResult(m))
     const sorted = [...visible].sort((a, b) => {
       const byRound = roundOrder(a.round) - roundOrder(b.round)

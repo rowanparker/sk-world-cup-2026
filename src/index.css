@@ -732,6 +732,23 @@ body {
   padding-top: 4px;
 }
 
+.footer p {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.footer__note {
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.footer__note strong {
+  color: var(--navy);
+}
+
 .footer a {
   color: var(--brand-blue-dark);
   text-decoration: none;
@@ -1014,4 +1031,189 @@ body {
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--navy);
+}
+
+.prize__estimate {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 2px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.prize__estimate-flag {
+  width: 22px;
+  height: auto;
+  flex-shrink: 0;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.prize__estimate-text {
+  font-weight: 600;
+  color: var(--brand-blue-dark);
+}
+
+/* ---------- Finals bracket ---------- */
+.bracket-nav {
+  display: flex;
+  gap: 6px;
+}
+
+.bracket-nav__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  font-size: 1.2rem;
+  line-height: 1;
+  color: var(--brand-blue-dark);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, opacity 0.15s;
+}
+
+.bracket-nav__btn:hover:not(:disabled) {
+  border-color: var(--brand-blue);
+  color: var(--brand-blue-dark);
+}
+
+.bracket-nav__btn:focus-visible {
+  outline: 2px solid var(--brand-blue);
+  outline-offset: 1px;
+}
+
+.bracket-nav__btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.bracket {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.bracket__round {
+  display: flex;
+  flex-direction: column;
+  min-width: 210px;
+  flex: 1 0 210px;
+}
+
+.bracket__round-title {
+  margin: 0 0 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--brand-blue-dark);
+}
+
+/* Space matches evenly so each round's cards sit centred between the two
+   they feed from, giving the staggered bracket look. */
+.bracket__matches {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  gap: 12px;
+  flex: 1;
+}
+
+.bracket__third {
+  margin-top: 22px;
+  max-width: 240px;
+}
+
+.bracket-match {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.bracket-match__date {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.bracket-match__detail {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.bracket-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 3px 0;
+}
+
+.bracket-side--won .bracket-side__team {
+  color: var(--brand-blue-dark);
+}
+
+.bracket-side--won .bracket-side__score {
+  color: var(--brand-blue-dark);
+}
+
+.bracket-side__flag {
+  width: 26px;
+  height: auto;
+  flex-shrink: 0;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.bracket-side__names {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.bracket-side__team {
+  font-weight: 600;
+  font-size: 0.86rem;
+  color: var(--navy);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bracket-side__person {
+  font-size: 0.72rem;
+  color: var(--brand-blue-dark);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bracket-side__placeholder {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.bracket-side--won .bracket-side__placeholder {
+  color: var(--brand-blue-dark);
+}
+
+.bracket-side__score {
+  margin-left: auto;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--navy);
+  font-variant-numeric: tabular-nums;
 }
