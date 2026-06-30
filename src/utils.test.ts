@@ -14,6 +14,7 @@ import {
   matchResult,
   normaliseTeamName,
   personSlug,
+  resolveFeeder,
   roundOrder,
 } from './utils'
 import type { Match, SweepRow, Team } from './types'
@@ -227,6 +228,66 @@ describe('buildBracket', () => {
     const { rounds, thirdPlace } = buildBracket(matches)
     expect(thirdPlace?.num).toBe(9)
     expect(rounds.some((r) => r.round === 'Match for third place')).toBe(false)
+  })
+
+  it('spans each match over the leaf rows it sits above', () => {
+    const { slots, leafCount } = buildBracket(matches)
+    // Four first-round matches → one leaf row each.
+    expect(slots.get(1)).toEqual({ start: 0, span: 1 })
+    expect(slots.get(4)).toEqual({ start: 3, span: 1 })
+    // A quarter-final centres over its two feeders.
+    expect(slots.get(5)).toEqual({ start: 0, span: 2 })
+    expect(slots.get(6)).toEqual({ start: 2, span: 2 })
+    // The semi covers all four leaf rows.
+    expect(slots.get(7)).toEqual({ start: 0, span: 4 })
+    expect(leafCount).toBeGreaterThanOrEqual(4)
+  })
+})
+
+describe('resolveFeeder', () => {
+  const m = (num: number, team1: string, team2: string, score?: Match['score']): Match => ({
+    round: 'Round of 16',
+    num,
+    date: '2026-07-01',
+    time: '13:00',
+    team1,
+    team2,
+    ground: 'Somewhere',
+    score,
+  })
+
+  const byNum = (list: Match[]) => {
+    const map = new Map<number, Match>()
+    for (const x of list) if (x.num != null) map.set(x.num, x)
+    return map
+  }
+
+  it('carries the winner of a decided match forward', () => {
+    const map = byNum([m(1, 'Brazil', 'Japan', { ft: [2, 1] })])
+    expect(resolveFeeder('W1', map)).toBe('Brazil')
+    expect(resolveFeeder('L1', map)).toBe('Japan')
+  })
+
+  it('resolves a penalty-shootout winner', () => {
+    const map = byNum([m(1, 'Germany', 'Paraguay', { ft: [0, 0], p: [4, 3] })])
+    expect(resolveFeeder('W1', map)).toBe('Germany')
+  })
+
+  it('keeps the placeholder while the match is undecided', () => {
+    const map = byNum([m(1, 'Brazil', 'Japan')])
+    expect(resolveFeeder('W1', map)).toBe('W1')
+  })
+
+  it('follows a chain of resolved feeders', () => {
+    const map = byNum([
+      m(1, 'Brazil', 'Japan', { ft: [2, 1] }),
+      m(2, 'W1', 'Spain', { ft: [3, 0] }),
+    ])
+    expect(resolveFeeder('W2', map)).toBe('Brazil')
+  })
+
+  it('returns concrete team names unchanged', () => {
+    expect(resolveFeeder('Brazil', byNum([]))).toBe('Brazil')
   })
 })
 

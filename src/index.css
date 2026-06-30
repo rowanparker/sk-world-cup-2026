@@ -1092,37 +1092,35 @@ body {
   cursor: default;
 }
 
+/* A grid whose rows are the bracket's leaf slots: each match spans the rows of
+   the sub-tree it sits above and is centred over them, so cards line up as a
+   tree no matter how tall each one is. */
 .bracket {
-  display: flex;
-  gap: 18px;
+  display: grid;
+  column-gap: 18px;
+  row-gap: 8px;
   overflow-x: auto;
   padding-bottom: 6px;
+  align-items: center;
 }
 
-.bracket__round {
+.bracket__cell {
   display: flex;
-  flex-direction: column;
-  min-width: 210px;
-  flex: 1 0 210px;
+  min-width: 0;
+}
+
+.bracket__cell > .bracket-match {
+  flex: 1;
 }
 
 .bracket__round-title {
-  margin: 0 0 12px;
+  margin: 0 0 4px;
   font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--brand-blue-dark);
-}
-
-/* Space matches evenly so each round's cards sit centred between the two
-   they feed from, giving the staggered bracket look. */
-.bracket__matches {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-around;
-  gap: 12px;
-  flex: 1;
+  align-self: start;
 }
 
 .bracket__third {

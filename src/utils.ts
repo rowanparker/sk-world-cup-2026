@@ -125,9 +125,48 @@ export function feederMatchNum(ref: string): number | null {
   return m ? Number(m[1]) : null
 }
 
+/**
+ * Carry knockout results forward. A side like "W74" (winner of match 74) or
+ * "L74" (loser) stays a placeholder in the source data until the organisers
+ * fill it in, so we resolve it ourselves: once match 74 has a decided result we
+ * return the actual team name, following the chain in case that side is itself
+ * an unresolved feeder. Returns the original ref while the feeding match is
+ * still undecided, or for a side that was never a feeder.
+ */
+export function resolveFeeder(
+  ref: string,
+  matchesByNum: Map<number, Match>,
+): string {
+  let cur = ref
+  // Guard against malformed cyclic data; a real bracket is at most ~6 deep.
+  for (let i = 0; i < 8; i++) {
+    const wantsLoser = cur[0] === 'L'
+    const num = feederMatchNum(cur)
+    if (num == null) return cur
+    const match = matchesByNum.get(num)
+    if (!match) return ref
+    const result = matchResult(match)
+    if (!result || result.winner === null) return ref
+    const side = wantsLoser ? (result.winner === 1 ? 2 : 1) : result.winner
+    cur = side === 1 ? match.team1 : match.team2
+  }
+  return ref
+}
+
 export interface BracketRound {
   round: string
   matches: Match[]
+}
+
+/**
+ * A match's vertical placement, measured in leaf rows (one row per first-round
+ * match). A match spans the rows of every match below it in its sub-tree and is
+ * rendered centred over that span, giving the staggered bracket look regardless
+ * of how tall each card is.
+ */
+export interface BracketSlot {
+  start: number
+  span: number
 }
 
 export interface Bracket {
@@ -135,47 +174,83 @@ export interface Bracket {
   rounds: BracketRound[]
   /** The third-place play-off sits outside the main tree, or null if absent. */
   thirdPlace: Match | null
+  /** Per-match leaf-row placement, keyed by match number. */
+  slots: Map<number, BracketSlot>
+  /** Total leaf rows the bracket occupies — the grid's row count. */
+  leafCount: number
 }
 
 /**
- * Arrange the knockout matches into a bracket. Within each round the matches are
- * ordered top-to-bottom so each one sits between the two it feeds from: a
- * pre-order walk from the Final stamps every match with a visit index, and each
- * round is then sorted by that index.
+ * Arrange the knockout matches into a bracket. Each match is assigned a leaf-row
+ * span by walking the feeder tree from the Final: a first-round match (both
+ * sides concrete) takes a single row, and every later match spans the combined
+ * rows of the two it feeds from — recursing into a feeder side, or reserving one
+ * row for a side whose team is already seeded. Rounds are then ordered
+ * top-to-bottom by where each match's span begins.
  */
 export function buildBracket(matches: Match[]): Bracket {
   const knockout = matches.filter((m) => isKnockoutRound(m.round))
   const byNum = new Map<number, Match>()
   for (const m of knockout) if (m.num != null) byNum.set(m.num, m)
 
-  const order = new Map<number, number>()
-  let counter = 0
-  const visit = (num: number | null | undefined) => {
-    if (num == null) return
+  const slots = new Map<number, BracketSlot>()
+  const inProgress = new Set<number>()
+  let cursor = 0
+  const computeSlot = (num: number): BracketSlot | null => {
+    const existing = slots.get(num)
+    if (existing) return existing
     const match = byNum.get(num)
-    if (!match || order.has(num)) return
-    order.set(num, counter++)
-    visit(feederMatchNum(match.team1))
-    visit(feederMatchNum(match.team2))
+    if (!match) return null
+    inProgress.add(num)
+    // Treat an in-progress reference (a self- or cyclic feeder in malformed
+    // data) as a seeded side rather than recursing forever.
+    const childNums = [
+      feederMatchNum(match.team1),
+      feederMatchNum(match.team2),
+    ].map((cn) =>
+      cn != null && byNum.has(cn) && !inProgress.has(cn) ? cn : null,
+    )
+    let slot: BracketSlot
+    if (childNums.every((cn) => cn == null)) {
+      // First-round match (or one with no known feeders): a single row.
+      slot = { start: cursor++, span: 1 }
+    } else {
+      // Recurse into each feeder; reserve one row for an already-seeded side.
+      const childSlots = childNums.map(
+        (cn) => (cn != null ? computeSlot(cn) : null) ?? { start: cursor++, span: 1 },
+      )
+      const start = Math.min(...childSlots.map((s) => s.start))
+      const end = Math.max(...childSlots.map((s) => s.start + s.span))
+      slot = { start, span: end - start }
+    }
+    slots.set(num, slot)
+    inProgress.delete(num)
+    return slot
   }
-  const final = knockout.find((m) => m.round === 'Final')
-  visit(final?.num)
-  // Stamp any match not reachable from the Final so nothing is dropped.
-  for (const m of knockout) if (m.num != null && !order.has(m.num)) order.set(m.num, counter++)
 
-  const orderOf = (m: Match) => order.get(m.num ?? -1) ?? Number.MAX_SAFE_INTEGER
+  const final = knockout.find((m) => m.round === 'Final')
+  if (final?.num != null) computeSlot(final.num)
+  // Place any match not reachable from the Final so nothing is dropped.
+  for (const m of knockout) {
+    if (m.num != null && m.round !== 'Match for third place' && !slots.has(m.num)) {
+      computeSlot(m.num)
+    }
+  }
+
+  const slotStart = (m: Match) =>
+    slots.get(m.num ?? -1)?.start ?? Number.MAX_SAFE_INTEGER
 
   const rounds = BRACKET_SEQUENCE.map((round) => ({
     round,
     matches: knockout
       .filter((m) => m.round === round)
-      .sort((a, b) => orderOf(a) - orderOf(b)),
+      .sort((a, b) => slotStart(a) - slotStart(b)),
   })).filter((r) => r.matches.length > 0)
 
   const thirdPlace =
     knockout.find((m) => m.round === 'Match for third place') ?? null
 
-  return { rounds, thirdPlace }
+  return { rounds, thirdPlace, slots, leafCount: cursor }
 }
 
 export interface SweepStanding {

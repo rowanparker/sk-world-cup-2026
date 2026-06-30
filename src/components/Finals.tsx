@@ -6,6 +6,7 @@ import {
   formatMatchDate,
   indexTeamsByName,
   matchResult,
+  resolveFeeder,
 } from '../utils'
 import type { MatchResult } from '../utils'
 import { Chevron } from './Chevron'
@@ -39,6 +40,11 @@ export function Finals({ matches, teams, sweep }: FinalsProps) {
   }, [sweep])
 
   const bracket = useMemo(() => buildBracket(matches), [matches])
+  const matchesByNum = useMemo(() => {
+    const map = new Map<number, Match>()
+    for (const m of matches) if (m.num != null) map.set(m.num, m)
+    return map
+  }, [matches])
 
   const scrollerRef = useRef<HTMLDivElement>(null)
   // Track whether there's room to scroll either way, to enable/disable the arrows.
@@ -89,7 +95,10 @@ export function Finals({ matches, teams, sweep }: FinalsProps) {
     result: MatchResult | null,
     which: 1 | 2,
   ): BracketSide => {
-    const team = teamsByName.get(ref) ?? null
+    // The source keeps "winner of match N" placeholders until late, so carry
+    // decided results forward ourselves before looking up the team.
+    const resolved = resolveFeeder(ref, matchesByNum)
+    const team = teamsByName.get(resolved) ?? null
     const goals = result ? result.ft[which - 1] : null
     return {
       team,
@@ -149,21 +158,44 @@ export function Finals({ matches, teams, sweep }: FinalsProps) {
         className={`panel__collapse${open ? ' panel__collapse--open' : ''}`}
       >
         <div className="panel__collapse-inner" {...(open ? {} : { inert: '' })}>
-          <div className="bracket" role="presentation" ref={scrollerRef}>
-            {bracket.rounds.map((round) => (
-              <div key={round.round} className="bracket__round">
-                <h3 className="bracket__round-title">{round.round}</h3>
-                <div className="bracket__matches">
-                  {round.matches.map((match) => (
-                    <BracketMatch
-                      key={match.num ?? match.date}
-                      match={match}
-                      resolveSide={resolveSide}
-                    />
-                  ))}
-                </div>
-              </div>
+          <div
+            className="bracket"
+            role="presentation"
+            ref={scrollerRef}
+            style={{
+              gridTemplateColumns: `repeat(${bracket.rounds.length}, minmax(190px, 1fr))`,
+              gridTemplateRows: `auto repeat(${bracket.leafCount}, auto)`,
+            }}
+          >
+            {bracket.rounds.map((round, col) => (
+              <h3
+                key={round.round}
+                className="bracket__round-title"
+                style={{ gridColumn: col + 1, gridRow: 1 }}
+              >
+                {round.round}
+              </h3>
             ))}
+            {bracket.rounds.map((round, col) =>
+              round.matches.map((match) => {
+                const slot = bracket.slots.get(match.num ?? -1)
+                return (
+                  <div
+                    key={match.num ?? match.date}
+                    className="bracket__cell"
+                    style={{
+                      gridColumn: col + 1,
+                      // Rows are offset by one to clear the header row.
+                      gridRow: slot
+                        ? `${slot.start + 2} / span ${slot.span}`
+                        : undefined,
+                    }}
+                  >
+                    <BracketMatch match={match} resolveSide={resolveSide} />
+                  </div>
+                )
+              }),
+            )}
           </div>
 
           {bracket.thirdPlace && (
